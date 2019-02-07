@@ -100,9 +100,13 @@ public class Main {
 
     public static void main(String... args) {
         Main main = new Main();
+        Codec codec = new Codec(main);
+
         main.loadProblem("data/p01");
         main.cluster();
         main.createInitialPopulation(10);
+
+        System.out.println(codec.evaluate(main.population.get(0)));
 
         System.out.println("Boop");
     }
