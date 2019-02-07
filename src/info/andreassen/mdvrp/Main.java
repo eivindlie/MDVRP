@@ -3,11 +3,16 @@ package info.andreassen.mdvrp;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class Main {
 
     Customer[] customers;
     Depot[] depots;
+    List<Chromosome> population;
 
     public Main() {
 
@@ -40,7 +45,7 @@ public class Main {
                 int serviceDuration = Integer.parseInt(customerLine[3]);
                 int demand = Integer.parseInt(customerLine[4]);
 
-                customers[i] = new Customer(x, y, serviceDuration, demand);
+                customers[i] = new Customer(i + 1, x, y, serviceDuration, demand);
             }
 
             // Get positions of depots
@@ -57,7 +62,7 @@ public class Main {
         }
     }
 
-    public void initialize() {
+    public void cluster() {
         for (int i = 0; i < customers.length; i++) {
             int depot = 0;
             double closestDistance = -1;
@@ -78,10 +83,26 @@ public class Main {
         }
     }
 
+    public void createInitialPopulation(int numChromosomes) {
+        population = new ArrayList<>();
+
+        // Initialize chromosome by simply shuffling the closest customers
+        for (int i = 0; i < numChromosomes; i++) {
+            Chromosome c = new Chromosome();
+            for (int j = 0; j < depots.length; j++) {
+                Collections.shuffle(depots[j].initialCustomers);
+                List<Integer> depot = depots[j].initialCustomers.stream().map(x -> x.id).collect(Collectors.toList());
+                c.depots.add(depot);
+            }
+            population.add(c);
+        }
+    }
+
     public static void main(String... args) {
         Main main = new Main();
         main.loadProblem("data/p01");
-        main.initialize();
+        main.cluster();
+        main.createInitialPopulation(10);
 
         System.out.println("Boop");
     }
