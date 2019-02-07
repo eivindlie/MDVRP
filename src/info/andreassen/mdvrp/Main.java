@@ -1,7 +1,6 @@
 package info.andreassen.mdvrp;
 
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 
@@ -53,17 +52,37 @@ public class Main {
                 depots[i].y = y;
             }
 
-            System.out.println("Load finished");
-
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
+    public void initialize() {
+        for (int i = 0; i < customers.length; i++) {
+            int depot = 0;
+            double closestDistance = -1;
+            double nextClosest = -1;
+            for (int j = 0; j < depots.length; j++) {
+                double distance = Math.sqrt(Math.pow(customers[i].x - depots[j].x, 2) +
+                                            Math.pow(customers[i].y - depots[j].y, 2));
+                if (closestDistance == -1 || distance < closestDistance) {
+                    nextClosest = closestDistance;
+                    closestDistance = distance;
+                    depot = j;
+                } else if (nextClosest == -1) {
+                    nextClosest = distance;
+                }
+            }
 
+            depots[depot].initialCustomers.add(customers[i]);
+        }
+    }
 
     public static void main(String... args) {
         Main main = new Main();
         main.loadProblem("data/p01");
+        main.initialize();
+
+        System.out.println("Boop");
     }
 }

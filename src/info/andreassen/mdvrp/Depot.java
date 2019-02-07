@@ -10,6 +10,8 @@ public class Depot {
     public int x;
     public int y;
 
+    public List<Customer> initialCustomers;
+
     public List<Route> routes;
 
     public Depot(int x, int y, int maxVehicles, int maxDuration, int maxLoad) {
@@ -20,6 +22,7 @@ public class Depot {
         this.maxLoad = maxLoad;
 
         this.routes = new ArrayList<>();
+        this.initialCustomers = new ArrayList<>();
     }
 
     public Depot(int maxVehicles, int maxDuration, int maxLoad) {
