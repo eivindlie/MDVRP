@@ -1,11 +1,14 @@
 from random import shuffle, expovariate, random
 import math
 
+import matplotlib.pyplot as plt
+import numpy as np
+
 from data_classes import Depot, Customer
 from utility import distance
 
 
-population_size = 100
+population_size = 20
 
 depots = None
 customers = None
@@ -58,7 +61,7 @@ def evaluate(chromosome):
     score = 0
     for depot_index in range(len(chromosome)):
         depot = depots[depot_index]
-        for route in routify(chromosome[depot_index], depot):
+        for route in chromosome[depot_index]:
             customer = None
             last_pos = depot.pos
             for cid in route:
@@ -92,7 +95,9 @@ def routify(cust, depot):
             route_distance = distance(customer.pos, depot.pos) + customer.service_duration
             route_load = customer.demand
             route = [customer.id]
+        d.append(route)
         last_pos = customer.pos
+
     return d
 
 
@@ -105,7 +110,7 @@ def create_initial_population():
         for depot in depots:
             shuffle(depot.closest_customers)
             d = list(map(lambda x: x.id, depot.closest_customers[:]))
-            # d = routify(depot.closest_customers, depot)
+            d = routify(d, depot)
             chromosome.append(d)
         population.append(chromosome)
 
@@ -119,16 +124,41 @@ def reproduce(elitism=2):
     for i in range(elitism):
         new_population.append(population[i])
 
-    for i in range(math.ceil((population_size - elitism) / 2)):
+    while len(new_population) < population_size:
         parents = []
         for j in range(2):
             # Use an exponential distribution, which is more likely to draw the best chromosomes
             p = int(expovariate(1/((population_size / 2) - 2))) % population_size
             parents.append(population[p])
 
-        # TODO Implement crossover
+        d = int(random() * len(depots))
+        r1 = int(random() * len(parents[0][d]))
+        r2 = int(random() * len(parents[1][d]))
+
         new_population.extend(parents)
-    population = new_population
+    population = new_population[:population_size]
+
+
+def plot(chromosome):
+    for d, routes in enumerate(chromosome):
+        depot = depots[d]
+        for route in routes:
+            positions = [depot.pos]
+            last_pos = depot.pos
+            for cid in route:
+                last_pos = customers[cid - 1].pos
+                positions.append(last_pos)
+            positions.append(find_closest_depot(last_pos)[0].pos)
+
+            positions = np.array(positions)
+            plt.plot(positions[:, 0], positions[:, 1], zorder=0)
+
+    depot_positions = np.array(list(map(lambda x: x.pos, depots)))
+    customer_positions = np.array(list(map(lambda x: x.pos, customers)))
+    plt.scatter(depot_positions[:, 0], depot_positions[:, 1], c='g', s=60, zorder=10)
+    plt.scatter(customer_positions[:, 0], customer_positions[:, 1], c='k', s=20, zorder=20)
+
+    plt.show()
 
 
 def mutate(rate=0.01):
@@ -141,19 +171,29 @@ def mutate(rate=0.01):
         if sel < 0.3:
             # Reverse a cut from the chromosome
             depot_index = int(random() * len(chromosome))
-            depot = chromosome[depot_index]
+            depot = [customer for route in chromosome[depot_index] for customer in route]
             if not len(depot):
                 continue
             cut1 = int(random() * len(depot))
-            cut2 = cut1 + int(random() * (len(depot) - cut1))
+            cut2 = cut1 + int(random() * (len(depot) - cut1 + 1))
+            if cut1 == 0:
+                depot = depot[:cut1] + depot[cut2-1::-1] + depot[cut2:]
+            else:
+                depot = depot[:cut1] + depot[cut2-1:cut1-1:-1] + depot[cut2:]
 
-            chromosome[depot_index] = depot[:cut1] + depot[cut2-1:cut1-1:-1] + depot[cut2:]
+            chromosome[depot_index] = routify(depot, depots[depot_index])
+            pass
+
+
+def get_best():
+    return min(population, key=lambda x: evaluate(x))
 
 
 def train(generations):
     for i in range(generations):
         if i % 10 == 0:
             best_score = min(map(lambda x: evaluate(x), population))
+            print(len(population))
             print(f'[Generation {i}] Best score: {best_score}')
 
         reproduce()
@@ -161,8 +201,9 @@ def train(generations):
 
 
 if __name__ == '__main__':
-    load_problem('../data/p06')
+    load_problem('../data/p01')
     cluster()
     create_initial_population()
 
-    train(1000)
+    # train(100)
+    plot(get_best())
