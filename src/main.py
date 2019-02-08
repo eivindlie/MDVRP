@@ -106,6 +106,8 @@ def routify(cust, depot):
             route = [customer.id]
         last_pos = customer.pos
     d.append(route)
+    while len(d) < depot.max_vehicles:
+        d.append([])
 
     return d
 
@@ -155,7 +157,7 @@ def mutate(rate=0.3):
 
         sel = random()
 
-        if sel < 0.05:
+        if sel < 0.01:
             # Reverse a cut from the chromosome
             depot_index = int(random() * len(chromosome))
             depot = [customer for route in chromosome[depot_index] for customer in route]
@@ -170,7 +172,8 @@ def mutate(rate=0.3):
 
             chromosome[depot_index] = routify(depot, depots[depot_index])
 
-        elif sel < 0.9:
+        elif sel < 0.99:
+            # Select single customer, and insert at best possible location
             depot_index = int(random() * len(chromosome))
             depot = chromosome[depot_index]
             if len(depot) == 0:
@@ -188,7 +191,7 @@ def mutate(rate=0.3):
             best_index = None
             best_score = -1
             for i in range(len(depot)):
-                for j in range(len(depot[i])):
+                for j in range(len(depot[i]) + 1):
                     depot[i].insert(j, customer)
                     score = evaluate(chromosome)
 
@@ -199,6 +202,26 @@ def mutate(rate=0.3):
                     depot[i].pop(j)
 
             depot[best_index[0]].insert(best_index[1], customer)
+        else:
+            # Swap two customers
+            depot_index = int(random() * len(chromosome))
+            depot = chromosome[depot_index]
+            if len(depot) == 0:
+                continue
+
+            r1 = int(random() * len(depot))
+            r2 = int(random() * len(depot))
+
+            if len(depot[r1]) == 0 or len(depot[r2]) == 0:
+                continue
+
+            c1 = int(random() * len(depot[r1]))
+            c2 = int(random() * len(depot[r2]))
+
+            depot[r1][c1], depot[r2][c2] = depot[r2][c2], depot[r1][c1]
+            if evaluate(chromosome) == math.inf:
+                # Swap back if new chromosome is illegal
+                depot[r1][c1], depot[r2][c2] = depot[r2][c2], depot[r1][c1]
 
 
 def plot(chromosome):
@@ -242,5 +265,5 @@ if __name__ == '__main__':
     cluster()
     create_initial_population()
 
-    train(100)
+    train(1000)
     plot(get_best())
