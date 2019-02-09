@@ -65,7 +65,63 @@ def is_consistent_route(route, depot):
     return route_load < depot.max_load and (depot.max_duration == 0 or route_duration < depot.max_duration)
 
 
+def encode(routes):
+    chromosome = []
+    for d in range(len(routes)):
+        chromosome.append(-1)
+        for r in range(len(routes[d])):
+            chromosome.append(0)
+            chromosome.extend(routes[d][r])
+    return chromosome
+
+
+def decode(chromosome):
+    routes = []
+    d = -1
+    r = -1
+    for i in chromosome:
+        if i < 0:
+            routes.append([])
+            d += 1
+            r = -1
+        elif i == 0:
+            routes[d].append([])
+            r += 1
+        else:
+            routes[d][r].append(i)
+    return routes
+
+
+def evaluate(chromosome, return_distance=False):
+    routes = decode(chromosome)
+    score = 0
+    for depot_index in range(len(routes)):
+        depot = depots[depot_index]
+        for route in routes[depot_index]:
+            if len(route) == 0:
+                continue
+            route_load = 0
+            route_length = 0
+            customer = None
+            last_pos = depot.pos
+            for cid in route:
+                customer = customers[cid - 1]
+                route_load += customer.demand
+                route_length += distance(last_pos, customer.pos)
+                route_length += customer.service_duration
+            route_length += find_closest_depot(customer.pos)[1]
+            score += route_length
+
+            if route_load > depot.max_load or (depot.max_duration != 0 and route_length > depot.max_duration):
+                return math.inf
+    if return_distance:
+        return score
+    return 1/score
+
+
 def initialize():
+    global population
+    population = []
     groups = [[] for i in range(len(depots))]
 
     # Group customers to closest depot
@@ -73,83 +129,83 @@ def initialize():
         depot, depot_index, dist = find_closest_depot(c.pos)
         groups[depot_index].append(c.id)
 
-    # Group customers in routes according to savings
-    routes = [[] for i in range(len(depots))]
-    for d in range(len(groups)):
-        depot = depots[d]
-        savings = []
-        for i in range(len(groups[d])):
-            ci = customers[groups[d][i] - 1]
-            savings.append([])
-            for j in range(len(groups[d])):
-                if j <= i:
-                    savings[i].append(0)
-                else:
-                    cj = customers[groups[d][j] - 1]
-                    savings[i].append(distance(depot.pos, ci.pos) + distance(depot.pos, cj.pos) -
-                                      distance(ci.pos, cj.pos))
-        savings = np.array(savings)
-        order = np.flip(np.argsort(savings, axis=None), 0)
-
-        for saving in order:
-            i = saving // len(groups[d])
-            j = saving % len(groups[d])
-
-            ci = groups[d][i]
-            cj = groups[d][j]
-
-            ri = -1
-            rj = -1
-            for r, route in enumerate(routes[d]):
-                if ci in route:
-                    ri = r
-                if cj in route:
-                    rj = r
-
-            if ri == -1 and rj == -1:
-                if len(routes[d]) < depot.max_vehicles:
-                    route = [ci, cj]
-                    if is_consistent_route(route, depot):
-                        routes[d].append(route)
-            elif ri != -1 and rj == -1:
-                if routes[d][ri].index(ci) in (0, len(routes[d][ri]) - 1):
-                    route = routes[d][ri] + [cj]
-                    if is_consistent_route(route, depot):
-                        routes[d][ri].append(cj)
-            elif ri == -1 and rj != -1:
-                if routes[d][rj].index(cj) in (0, len(routes[d][rj]) - 1):
-                    route = routes[d][rj] + [ci]
-                    if is_consistent_route(route, depot):
-                        routes[d][rj].append(ci)
-            elif ri != rj:
-                route = routes[d][ri] + routes[d][rj]
-                if is_consistent_route(route, depot):
-                    if ri > rj:
-                        routes[d].pop(ri)
-                        routes[d].pop(rj)
+    for z in range(population_size):
+        # Group customers in routes according to savings
+        routes = [[] for i in range(len(depots))]
+        for d in range(len(groups)):
+            depot = depots[d]
+            savings = []
+            for i in range(len(groups[d])):
+                ci = customers[groups[d][i] - 1]
+                savings.append([])
+                for j in range(len(groups[d])):
+                    if j <= i:
+                        savings[i].append(0)
                     else:
-                        routes[d].pop(rj)
-                        routes[d].pop(ri)
-                    routes[d].append(route)
+                        cj = customers[groups[d][j] - 1]
+                        savings[i].append(distance(depot.pos, ci.pos) + distance(depot.pos, cj.pos) -
+                                          distance(ci.pos, cj.pos))
+            savings = np.array(savings)
+            order = np.flip(np.argsort(savings, axis=None), 0)
 
-    # Order customers within routes
-    for i, depot_routes in enumerate(routes):
-        for j, route in enumerate(depot_routes):
-            new_route = []
-            prev_cust = random.choice(route)
-            route.remove(prev_cust)
-            new_route.append(prev_cust)
+            for saving in order:
+                i = saving // len(groups[d])
+                j = saving % len(groups[d])
 
-            while len(route):
-                prev_cust = min(route, key=lambda x: distance(customers[x - 1].pos, customers[prev_cust - 1].pos))
+                ci = groups[d][i]
+                cj = groups[d][j]
+
+                ri = -1
+                rj = -1
+                for r, route in enumerate(routes[d]):
+                    if ci in route:
+                        ri = r
+                    if cj in route:
+                        rj = r
+
+                if ri == -1 and rj == -1:
+                    if len(routes[d]) < depot.max_vehicles:
+                        route = [ci, cj]
+                        if is_consistent_route(route, depot):
+                            routes[d].append(route)
+                elif ri != -1 and rj == -1:
+                    if routes[d][ri].index(ci) in (0, len(routes[d][ri]) - 1):
+                        route = routes[d][ri] + [cj]
+                        if is_consistent_route(route, depot):
+                            routes[d][ri].append(cj)
+                elif ri == -1 and rj != -1:
+                    if routes[d][rj].index(cj) in (0, len(routes[d][rj]) - 1):
+                        route = routes[d][rj] + [ci]
+                        if is_consistent_route(route, depot):
+                            routes[d][rj].append(ci)
+                elif ri != rj:
+                    route = routes[d][ri] + routes[d][rj]
+                    if is_consistent_route(route, depot):
+                        if ri > rj:
+                            routes[d].pop(ri)
+                            routes[d].pop(rj)
+                        else:
+                            routes[d].pop(rj)
+                            routes[d].pop(ri)
+                        routes[d].append(route)
+
+        # Order customers within routes
+        for i, depot_routes in enumerate(routes):
+            for j, route in enumerate(depot_routes):
+                new_route = []
+                prev_cust = random.choice(route)
                 route.remove(prev_cust)
                 new_route.append(prev_cust)
-            routes[i][j] = new_route
-    plot(routes)
 
+                while len(route):
+                    prev_cust = min(route, key=lambda x: distance(customers[x - 1].pos, customers[prev_cust - 1].pos))
+                    route.remove(prev_cust)
+                    new_route.append(prev_cust)
+                routes[i][j] = new_route
 
-
-
+        chromosome = encode(routes)
+        print(evaluate(chromosome))
+        population.append(chromosome)
 
 
 def plot_map(show=True, annotate=True):
@@ -195,5 +251,4 @@ def plot(chromosome):
 
 if __name__ == '__main__':
     load_problem('../data/p01')
-    plot_map()
     initialize()
