@@ -72,7 +72,7 @@ def is_consistent_route(route, depot):
 
 def is_consistent(chromosome):
     for c in customers:
-        if c not in chromosome:
+        if c.id not in chromosome:
             return False
 
     routes = decode(chromosome)
@@ -153,7 +153,114 @@ def evaluate(chromosome, return_distance=False):
     return 1/score
 
 
-def initialize():
+def create_heuristic_chromosome(groups):
+    # Group customers in routes according to savings
+    routes = [[] for i in range(len(depots))]
+    missing_customers = list(map(lambda x: x.id, customers))
+    for d in range(len(groups)):
+        depot = depots[d]
+        savings = []
+        for i in range(len(groups[d])):
+            ci = customers[groups[d][i] - 1]
+            savings.append([])
+            for j in range(len(groups[d])):
+                if j <= i:
+                    savings[i].append(0)
+                else:
+                    cj = customers[groups[d][j] - 1]
+                    savings[i].append(distance(depot.pos, ci.pos) + distance(depot.pos, cj.pos) -
+                                      distance(ci.pos, cj.pos))
+        savings = np.array(savings)
+        order = np.flip(np.argsort(savings, axis=None), 0)
+
+        for saving in order:
+            i = saving // len(groups[d])
+            j = saving % len(groups[d])
+
+            ci = groups[d][i]
+            cj = groups[d][j]
+
+            ri = -1
+            rj = -1
+            for r, route in enumerate(routes[d]):
+                if ci in route:
+                    ri = r
+                if cj in route:
+                    rj = r
+
+            if ri == -1 and rj == -1:
+                if len(routes[d]) < depot.max_vehicles:
+                    route = [ci, cj]
+                    if is_consistent_route(route, depot):
+                        routes[d].append(route)
+                        missing_customers.remove(ci)
+                        missing_customers.remove(cj)
+            elif ri != -1 and rj == -1:
+                if routes[d][ri].index(ci) in (0, len(routes[d][ri]) - 1):
+                    route = routes[d][ri] + [cj]
+                    if is_consistent_route(route, depot):
+                        routes[d][ri].append(cj)
+                        missing_customers.remove(cj)
+            elif ri == -1 and rj != -1:
+                if routes[d][rj].index(cj) in (0, len(routes[d][rj]) - 1):
+                    route = routes[d][rj] + [ci]
+                    if is_consistent_route(route, depot):
+                        routes[d][rj].append(ci)
+                        missing_customers.remove(ci)
+            elif ri != rj:
+                route = routes[d][ri] + routes[d][rj]
+                if is_consistent_route(route, depot):
+                    if ri > rj:
+                        routes[d].pop(ri)
+                        routes[d].pop(rj)
+                    else:
+                        routes[d].pop(rj)
+                        routes[d].pop(ri)
+                    routes[d].append(route)
+
+    # Order customers within routes
+    for i, depot_routes in enumerate(routes):
+        for j, route in enumerate(depot_routes):
+            new_route = []
+            prev_cust = random.choice(route)
+            route.remove(prev_cust)
+            new_route.append(prev_cust)
+
+            while len(route):
+                prev_cust = min(route, key=lambda x: distance(customers[x - 1].pos, customers[prev_cust - 1].pos))
+                route.remove(prev_cust)
+                new_route.append(prev_cust)
+            routes[i][j] = new_route
+
+    chromosome = encode(routes)
+    chromosome.extend(missing_customers)
+    return chromosome
+
+
+def create_random_chromosome(groups):
+    routes = []
+    for d in range(len(groups)):
+        depot = depots[d]
+        group = groups[d][:]
+        random.shuffle(group)
+        routes.append([[]])
+
+        r = 0
+        route_cost = 0
+        route_load = 0
+        last_pos = depot.pos
+        for c in group:
+            customer = customers[c - 1]
+            cost = distance(last_pos, customer.pos) + customer.service_duration + find_closest_depot(customer.pos)[2]
+            if route_cost + cost > depot.max_duration or route_load + customer.demand > depot.max_load:
+                r += 1
+                routes[d].append([])
+            routes[d][r].append(c)
+
+    return encode(routes)
+
+
+def initialize(random_portion=0):
     global population
     population = []
     groups = [[] for i in range(len(depots))]
@@ -163,87 +270,12 @@ def initialize():
         depot, depot_index, dist = find_closest_depot(c.pos)
         groups[depot_index].append(c.id)
 
-    for z in range(population_size):
-        # Group customers in routes according to savings
-        routes = [[] for i in range(len(depots))]
-        missing_customers = list(map(lambda x: x.id, customers))
-        for d in range(len(groups)):
-            depot = depots[d]
-            savings = []
-            for i in range(len(groups[d])):
-                ci = customers[groups[d][i] - 1]
-                savings.append([])
-                for j in range(len(groups[d])):
-                    if j <= i:
-                        savings[i].append(0)
-                    else:
-                        cj = customers[groups[d][j] - 1]
-                        savings[i].append(distance(depot.pos, ci.pos) + distance(depot.pos, cj.pos) -
-                                          distance(ci.pos, cj.pos))
-            savings = np.array(savings)
-            order = np.flip(np.argsort(savings, axis=None), 0)
+    for z in range(int(population_size * (1 - random_portion))):
+        chromosome = create_heuristic_chromosome(groups)
+        population.append((chromosome, evaluate(chromosome)))
 
-            for saving in order:
-                i = saving // len(groups[d])
-                j = saving % len(groups[d])
-
-                ci = groups[d][i]
-                cj = groups[d][j]
-
-                ri = -1
-                rj = -1
-                for r, route in enumerate(routes[d]):
-                    if ci in route:
-                        ri = r
-                    if cj in route:
-                        rj = r
-
-                if ri == -1 and rj == -1:
-                    if len(routes[d]) < depot.max_vehicles:
-                        route = [ci, cj]
-                        if is_consistent_route(route, depot):
-                            routes[d].append(route)
-                            missing_customers.remove(ci)
-                            missing_customers.remove(cj)
-                elif ri != -1 and rj == -1:
-                    if routes[d][ri].index(ci) in (0, len(routes[d][ri]) - 1):
-                        route = routes[d][ri] + [cj]
-                        if is_consistent_route(route, depot):
-                            routes[d][ri].append(cj)
-                            missing_customers.remove(cj)
-                elif ri == -1 and rj != -1:
-                    if routes[d][rj].index(cj) in (0, len(routes[d][rj]) - 1):
-                        route = routes[d][rj] + [ci]
-                        if is_consistent_route(route, depot):
-                            routes[d][rj].append(ci)
-                            missing_customers.remove(ci)
-                elif ri != rj:
-                    route = routes[d][ri] + routes[d][rj]
-                    if is_consistent_route(route, depot):
-                        if ri > rj:
-                            routes[d].pop(ri)
-                            routes[d].pop(rj)
-                        else:
-                            routes[d].pop(rj)
-                            routes[d].pop(ri)
-                        routes[d].append(route)
-
-        # Order customers within routes
-        for i, depot_routes in enumerate(routes):
-            for j, route in enumerate(depot_routes):
-                new_route = []
-                prev_cust = random.choice(route)
-                route.remove(prev_cust)
-                new_route.append(prev_cust)
-
-                while len(route):
-                    prev_cust = min(route, key=lambda x: distance(customers[x - 1].pos, customers[prev_cust - 1].pos))
-                    route.remove(prev_cust)
-                    new_route.append(prev_cust)
-                routes[i][j] = new_route
-
-        chromosome = encode(routes)
-        chromosome.extend(missing_customers)
+    for z in range(int(population_size * random_portion)):
+        chromosome = create_random_chromosome(groups)
         population.append((chromosome, evaluate(chromosome)))
 
 
@@ -268,14 +300,22 @@ def crossover(p1, p2):
 
     p2_ = list(reversed(p2))
     for g in substring:
-        p2_.remove(g)
+        if g in p2_:
+            p2_.remove(g)
     p2_.reverse()
 
     j = 0
     for i in range(len(protochild)):
         if protochild[i] is None:
+            if j >= len(p2_):
+                break
             protochild[i] = p2_[j]
             j += 1
+
+    i = len(protochild) - 1
+    while protochild[i] is None:
+        protochild.pop()
+        i -= 1
 
     if is_consistent(protochild):
         population.append((protochild, evaluate(protochild)))
@@ -400,9 +440,10 @@ def plot(chromosome):
 
 
 if __name__ == '__main__':
-    load_problem('../data/p14')
+    load_problem('../data/p01')
     initialize()
-    train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_rate)
+    train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_rate,
+          intermediate_plots=True)
 
     # for i in range(13, 24):
     #     if i < 10:
