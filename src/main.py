@@ -118,7 +118,7 @@ def decode(chromosome):
 
 def evaluate(chromosome, return_distance=False):
     for c in customers:
-        if c not in chromosome:
+        if c.id not in chromosome:
             if return_distance:
                 return math.inf
             return 0
@@ -144,9 +144,10 @@ def evaluate(chromosome, return_distance=False):
             score += route_length
 
             if route_load > depot.max_load or (depot.max_duration != 0 and route_length > depot.max_duration):
-                if return_distance:
-                    return math.inf
-                return 0
+                # if return_distance:
+                #     return math.inf
+                # return 0
+                score += 3000
     if return_distance:
         return score
     return 1/score
@@ -165,6 +166,7 @@ def initialize():
     for z in range(population_size):
         # Group customers in routes according to savings
         routes = [[] for i in range(len(depots))]
+        missing_customers = list(map(lambda x: x.id, customers))
         for d in range(len(groups)):
             depot = depots[d]
             savings = []
@@ -201,16 +203,20 @@ def initialize():
                         route = [ci, cj]
                         if is_consistent_route(route, depot):
                             routes[d].append(route)
+                            missing_customers.remove(ci)
+                            missing_customers.remove(cj)
                 elif ri != -1 and rj == -1:
                     if routes[d][ri].index(ci) in (0, len(routes[d][ri]) - 1):
                         route = routes[d][ri] + [cj]
                         if is_consistent_route(route, depot):
                             routes[d][ri].append(cj)
+                            missing_customers.remove(cj)
                 elif ri == -1 and rj != -1:
                     if routes[d][rj].index(cj) in (0, len(routes[d][rj]) - 1):
                         route = routes[d][rj] + [ci]
                         if is_consistent_route(route, depot):
                             routes[d][rj].append(ci)
+                            missing_customers.remove(ci)
                 elif ri != rj:
                     route = routes[d][ri] + routes[d][rj]
                     if is_consistent_route(route, depot):
