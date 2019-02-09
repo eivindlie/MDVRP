@@ -9,7 +9,12 @@ from data_classes import Depot, Customer
 from utility import distance
 
 
-population_size = 20
+population_size = 25
+generations = 500
+crossover_rate = 0.4
+heuristic_mutate_rate = 0.5
+inversion_mutate_rate = 0.2
+
 
 depots = None
 customers = None
@@ -60,30 +65,49 @@ def is_consistent_route(route, depot):
         route_load += customer.demand
         route_duration += distance(last_pos, customer.pos) + customer.service_duration
         last_pos = customer.pos
-    route_duration = find_closest_depot(last_pos)[2]
+    route_duration += find_closest_depot(last_pos)[2]
 
     return route_load < depot.max_load and (depot.max_duration == 0 or route_duration < depot.max_duration)
+
+
+def is_consistent(chromosome):
+    for c in customers:
+        if c not in chromosome:
+            return False
+
+    routes = decode(chromosome)
+    for d in range(len(routes)):
+        depot = depots[d]
+        if len(routes) > depot.max_vehicles:
+            return False
+        for route in routes[d]:
+            if not is_consistent_route(route, depot):
+                return False
+
+    return True
 
 
 def encode(routes):
     chromosome = []
     for d in range(len(routes)):
-        chromosome.append(-1)
+        if d != 0:
+            chromosome.append(-1)
         for r in range(len(routes[d])):
-            chromosome.append(0)
+            if r != 0:
+                chromosome.append(0)
             chromosome.extend(routes[d][r])
     return chromosome
 
 
 def decode(chromosome):
-    routes = []
-    d = -1
-    r = -1
+    routes = [[[]]]
+    d = 0
+    r = 0
     for i in chromosome:
         if i < 0:
-            routes.append([])
+            routes.append([[]])
             d += 1
-            r = -1
+            r = 0
         elif i == 0:
             routes[d].append([])
             r += 1
@@ -93,6 +117,12 @@ def decode(chromosome):
 
 
 def evaluate(chromosome, return_distance=False):
+    for c in customers:
+        if c not in chromosome:
+            if return_distance:
+                return math.inf
+            return 0
+
     routes = decode(chromosome)
     score = 0
     for depot_index in range(len(routes)):
@@ -109,11 +139,14 @@ def evaluate(chromosome, return_distance=False):
                 route_load += customer.demand
                 route_length += distance(last_pos, customer.pos)
                 route_length += customer.service_duration
+                last_pos = customer.pos
             route_length += find_closest_depot(customer.pos)[1]
             score += route_length
 
             if route_load > depot.max_load or (depot.max_duration != 0 and route_length > depot.max_duration):
-                return math.inf
+                if return_distance:
+                    return math.inf
+                return 0
     if return_distance:
         return score
     return 1/score
@@ -204,8 +237,109 @@ def initialize():
                 routes[i][j] = new_route
 
         chromosome = encode(routes)
-        print(evaluate(chromosome))
-        population.append(chromosome)
+        population.append((chromosome, evaluate(chromosome)))
+
+
+def select(portion, elitism=0):
+    total_fitness = sum(map(lambda x: x[1], population))
+    weights = list(map(lambda x: (total_fitness - x[1])/(total_fitness * (population_size - 1)), population))
+    selection = random.choices(population, weights=weights, k=int(population_size*portion - elitism))
+    population.sort(key=lambda x: -x[1])
+    if elitism > 0:
+        selection.extend(population[:elitism])
+    return selection
+
+
+def crossover(p1, p2):
+    protochild = [None] * max(len(p1), len(p2))
+    cut1 = int(random.random() * len(p1))
+    cut2 = int(cut1 + random.random() * (len(p1) - cut1))
+    substring = p1[cut1:cut2]
+
+    for i in range(cut1, cut2):
+        protochild[i] = p1[i]
+
+    p2_ = list(reversed(p2))
+    for g in substring:
+        p2_.remove(g)
+    p2_.reverse()
+
+    j = 0
+    for i in range(len(protochild)):
+        if protochild[i] is None:
+            protochild[i] = p2_[j]
+            j += 1
+
+    if is_consistent(protochild):
+        population.append((protochild, evaluate(protochild)))
+
+
+def heuristic_mutate(p):
+    g = []
+    for i in range(3):
+        g.append(int(random.random() * len(p)))
+
+    offspring = []
+    for i in range(len(g)):
+        for j in range(len(g)):
+            if g == j:
+                continue
+            o = p[:]
+            o[g[i]], o[g[j]] = o[g[j]], o[g[i]]
+            offspring.append((o, evaluate(o)))
+
+    selected_offspring = max(offspring, key=lambda o: o[1])
+    if is_consistent(selected_offspring[0]):
+        population.append(selected_offspring)
+
+
+def inversion_mutate(p):
+    cut1 = int(random.random() * len(p))
+    cut2 = int(cut1 + random.random() * (len(p) - cut1))
+
+    if cut1 == 0:
+        child = p[:cut1] + p[cut2 - 1::-1] + p[cut2:]
+    else:
+        child = p[:cut1] + p[cut2 - 1:cut1 - 1:-1] + p[cut2:]
+    if is_consistent(child):
+        population.append((child, evaluate(child)))
+
+
+def train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_rate,
+          intermediate_plots=False, log=True):
+    global population
+    for g in range(generations):
+        if log and g % 10 == 0:
+            print(f'[Generation {g}] Best score: {max(map(lambda x: x[1], population))}')
+
+        if intermediate_plots and g % 100 == 0:
+            population.sort(key=lambda x: -x[1])
+            plot(population[0][0])
+
+        selection = select(heuristic_mutate_rate + inversion_mutate_rate + crossover_rate)
+        selection = list(map(lambda x: x[0], selection))
+
+        offset = 0
+        for i in range(int((population_size * crossover_rate) / 2)):
+            p1, p2 = selection[2*i + offset], selection[2*i + 1 + offset]
+            crossover(p1, p2)
+            crossover(p2, p1)
+        offset += int(population_size * crossover_rate)
+
+        for i in range(int(population_size * heuristic_mutate_rate)):
+            heuristic_mutate(selection[i + offset])
+        offset += int(population_size * heuristic_mutate_rate)
+
+        for i in range(int(population_size * inversion_mutate_rate)):
+            inversion_mutate(selection[i + offset])
+        offset += int(population_size * inversion_mutate_rate)
+
+        population = select(1.0, elitism=4)
+
+    population.sort(key=lambda x: -x[1])
+    print("\n\nFinished training")
+    print(f'Best score: {population[0][1]}, best distance: {evaluate(population[0][0], True)}')
+    plot(population[0][0])
 
 
 def plot_map(show=True, annotate=True):
@@ -231,7 +365,8 @@ def plot_map(show=True, annotate=True):
 
 
 def plot(chromosome):
-    for d, routes in enumerate(chromosome):
+    r = decode(chromosome)
+    for d, routes in enumerate(r):
         depot = depots[d]
         for route in routes:
             positions = [depot.pos]
@@ -250,5 +385,17 @@ def plot(chromosome):
 
 
 if __name__ == '__main__':
-    load_problem('../data/p01')
+    load_problem('../data/p14')
     initialize()
+    train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_rate)
+
+    # for i in range(13, 24):
+    #     if i < 10:
+    #         n = '0' + str(i)
+    #     else:
+    #         n = str(i)
+    #     print('p' + n)
+    #     load_problem('../data/p' + n)
+    #     initialize()
+    #     train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_rate,
+    #           intermediate_plots=True, log=True)
