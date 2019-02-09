@@ -243,6 +243,7 @@ def initialize():
                 routes[i][j] = new_route
 
         chromosome = encode(routes)
+        chromosome.extend(missing_customers)
         population.append((chromosome, evaluate(chromosome)))
 
 
@@ -344,7 +345,15 @@ def train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_r
 
     population.sort(key=lambda x: -x[1])
     print("\n\nFinished training")
-    print(f'Best score: {population[0][1]}, best distance: {evaluate(population[0][0], True)}')
+    if is_consistent(population[0][0]):
+        print(f'Best score: {population[0][1]}, best distance: {evaluate(population[0][0], True)}')
+    else:
+        for c in population:
+            if is_consistent(c[0]):
+                print(f'Best score: {c[1]}, best distance: {evaluate(c[0], True)}')
+                break
+        else:
+            print('Found no consistent solutions.')
     plot(population[0][0])
 
 
