@@ -139,7 +139,7 @@ def evaluate(chromosome, return_distance=False):
     return 1/score
 
 
-def evaluate_route(route, depot):
+def evaluate_route(route, depot, return_load=False):
     if len(route) == 0:
         return 0
     route_load = 0
@@ -155,7 +155,12 @@ def evaluate_route(route, depot):
     route_length += find_closest_depot(customer.pos)[1]
 
     if route_load > depot.max_load or (depot.max_duration != 0 and route_length > depot.max_duration):
+        if return_load:
+            return -1, route_load
         return -1
+
+    if return_load:
+        return route_length, route_load
     return route_length
 
 
@@ -445,11 +450,32 @@ def plot(chromosome):
     plt.show()
 
 
+def save_solution(chromosome, path):
+    routes = decode(chromosome)
+    total_duration = evaluate(chromosome, True)
+
+    with open(path, 'w') as f:
+        f.write(f'{total_duration:.2f}\n')
+
+        for d, depot in enumerate(depots):
+            for r, route in enumerate(routes[d]):
+                route_length, route_load = evaluate_route(route, depot, True)
+                f.write(f'{d + 1} {r + 1} {route_length:.2f} {route_load} ')
+                end_depot = find_closest_depot(customers[route[-1] - 1].pos)[1]
+                f.write(f'{end_depot + 1} ')
+
+                f.write(' '.join([str(c) for c in route]))
+                f.write('\n')
+
+
 if __name__ == '__main__':
-    load_problem('../data/p01')
+    current_problem = 'p01'
+    load_problem('../data/' + current_problem)
     initialize()
-    train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_rate,
-          intermediate_plots=True)
+    # train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_rate,
+    #       intermediate_plots=True)
+
+    save_solution(population[0][0], '../solutions/' + current_problem)
 
     # for i in range(13, 24):
     #     if i < 10:
