@@ -56,7 +56,7 @@ def find_closest_depot(pos):
     return closest_depot[0], closest_depot[1], closest_distance
 
 
-def is_consistent_route(route, depot):
+def is_consistent_route(route, depot, include_reason=False):
     route_load = 0
     route_duration = 0
     last_pos = depot.pos
@@ -67,7 +67,13 @@ def is_consistent_route(route, depot):
         last_pos = customer.pos
     route_duration += find_closest_depot(last_pos)[2]
 
-    return route_load < depot.max_load and (depot.max_duration == 0 or route_duration < depot.max_duration)
+    if include_reason:
+        if route_load > depot.max_load:
+            return False, 1
+        if depot.max_duration != 0 and route_duration > depot.max_duration:
+            return False, 2
+        return True, 0
+    return route_load <= depot.max_load and (depot.max_duration == 0 or route_duration <= depot.max_duration)
 
 
 def is_consistent(chromosome):
@@ -226,7 +232,8 @@ def create_heuristic_chromosome(groups):
                 route = routes[d][ri] + routes[d][rj]
 
             if route:
-                route = schedule_route(route)
+                if is_consistent_route(route, depot, True)[1] == 2:
+                    route = schedule_route(route)
                 if is_consistent_route(route, depot):
                     if ri == -1 and rj == -1:
                         routes[d].append(route)
@@ -487,7 +494,7 @@ def save_solution(chromosome, path):
 
 
 if __name__ == '__main__':
-    current_problem = 'p01'
+    current_problem = 'p08'
     load_problem('../data/' + current_problem)
     initialize()
     best_solution = train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_rate,
