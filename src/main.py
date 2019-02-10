@@ -15,6 +15,7 @@ crossover_rate = 0.4
 heuristic_mutate_rate = 0.5
 inversion_mutate_rate = 0.2
 depot_move_mutate_rate = 0.4
+best_insertion_mutate_rate = 0.4
 
 
 depots = None
@@ -382,6 +383,24 @@ def inversion_mutate(p):
     population.append((child, evaluate(child)))
 
 
+def best_insertion_mutate(p):
+    g = int(random.random() * len(p))
+
+    best_child = None
+    best_score = 0
+
+    for i in range(len(p) - 1):
+        child = p[:]
+        gene = child.pop(g)
+        child.insert(i, gene)
+        score = evaluate(child)
+        if score > best_score:
+            best_score = score
+            best_child = child
+
+    population.append((best_child, best_score))
+
+
 def depot_move_mutate(p):
     if -1 not in p:
         return
@@ -409,7 +428,8 @@ def train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_r
             population.sort(key=lambda x: -x[1])
             plot(population[0][0])
 
-        selection = select(heuristic_mutate_rate + inversion_mutate_rate + crossover_rate + depot_move_mutate_rate)
+        selection = select(heuristic_mutate_rate + inversion_mutate_rate
+                           + crossover_rate + depot_move_mutate_rate + best_insertion_mutate_rate)
         selection = list(map(lambda x: x[0], selection))
 
         offset = 0
@@ -430,6 +450,10 @@ def train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_r
         for i in range(int(population_size * depot_move_mutate_rate)):
             depot_move_mutate(selection[i + offset])
         offset += int(population_size * depot_move_mutate_rate)
+
+        for i in range(int(population_size * best_insertion_mutate_rate)):
+            best_insertion_mutate(selection[i + offset])
+        offset += int(population_size * best_insertion_mutate_rate)
 
         population = select(1.0, elitism=4)
 
