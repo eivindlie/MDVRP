@@ -5,12 +5,12 @@ population_size = 50
 crossover_rate = 0.05
 heuristic_mutate_rate = 0.05
 inversion_mutate_rate = 0.05
-depot_move_mutate_rate = 0.05
-best_insertion_mutate_rate = 0.05
+depot_move_mutate_rate = 0
+best_insertion_mutate_rate = 0.1
 route_merge_rate = 0.05
 
 if __name__ == '__main__':
-    current_problem = 'p13'
+    current_problem = 'p01'
     trainer.load_problem('../data/' + current_problem)
     trainer.set_population_size(population_size)
     trainer.initialize()
