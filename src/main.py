@@ -348,8 +348,7 @@ def crossover(p1, p2):
         protochild.pop()
         i -= 1
 
-    if is_consistent(protochild):
-        population.append((protochild, evaluate(protochild)))
+    population.append((protochild, evaluate(protochild)))
 
 
 def heuristic_mutate(p):
@@ -367,8 +366,7 @@ def heuristic_mutate(p):
             offspring.append((o, evaluate(o)))
 
     selected_offspring = max(offspring, key=lambda o: o[1])
-    if is_consistent(selected_offspring[0]):
-        population.append(selected_offspring)
+    population.append(selected_offspring)
 
 
 def inversion_mutate(p):
@@ -379,8 +377,7 @@ def inversion_mutate(p):
         child = p[:cut1] + p[cut2 - 1::-1] + p[cut2:]
     else:
         child = p[:cut1] + p[cut2 - 1:cut1 - 1:-1] + p[cut2:]
-    if is_consistent(child):
-        population.append((child, evaluate(child)))
+    population.append((child, evaluate(child)))
 
 
 def depot_move_mutate(p):
@@ -396,8 +393,7 @@ def depot_move_mutate(p):
     child = p[:]
     child.pop(i)
     child.insert(new_pos, -1)
-    if is_consistent(child):
-        population.append((child, evaluate(child)))
+    population.append((child, evaluate(child)))
 
 
 def train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_rate,
