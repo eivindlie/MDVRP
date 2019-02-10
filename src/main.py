@@ -410,7 +410,8 @@ def train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_r
                 break
         else:
             print('Found no consistent solutions.')
-    plot(best_solution)
+    if best_solution:
+        plot(best_solution)
     return best_solution
 
 
