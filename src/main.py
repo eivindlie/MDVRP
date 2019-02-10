@@ -78,7 +78,7 @@ def is_consistent(chromosome):
     routes = decode(chromosome)
     for d in range(len(routes)):
         depot = depots[d]
-        if len(routes) > depot.max_vehicles:
+        if len(routes[d]) > depot.max_vehicles:
             return False
         for route in routes[d]:
             if not is_consistent_route(route, depot):
@@ -205,7 +205,8 @@ def create_heuristic_chromosome(groups):
                     if is_consistent_route(route, depot):
                         routes[d].append(route)
                         missing_customers.remove(ci)
-                        missing_customers.remove(cj)
+                        if ci != cj:
+                            missing_customers.remove(cj)
             elif ri != -1 and rj == -1:
                 if routes[d][ri].index(ci) in (0, len(routes[d][ri]) - 1):
                     route = routes[d][ri] + [cj]
@@ -412,7 +413,7 @@ def plot_map(show=True, annotate=True):
     depot_positions = np.array(list(map(lambda x: x.pos, depots)))
     customer_positions = np.array(list(map(lambda x: x.pos, customers)))
 
-    depot_ids = np.arange(len(depots))
+    depot_ids = np.arange(1, len(depots) + 1)
     customer_ids = np.arange(1, len(customers) + 1)
 
     depot_positions = np.array(list(map(lambda x: x.pos, depots)))
@@ -460,20 +461,20 @@ def save_solution(chromosome, path):
         for d, depot in enumerate(depots):
             for r, route in enumerate(routes[d]):
                 route_length, route_load = evaluate_route(route, depot, True)
-                f.write(f'{d + 1} {r + 1} {route_length:.2f} {route_load} ')
+                f.write(f'{d + 1}\t{r + 1}\t{route_length:.2f}\t{route_load}\t')
                 end_depot = find_closest_depot(customers[route[-1] - 1].pos)[1]
-                f.write(f'{end_depot + 1} ')
+                f.write(f'{end_depot + 1}\t')
 
                 f.write(' '.join([str(c) for c in route]))
                 f.write('\n')
 
 
 if __name__ == '__main__':
-    current_problem = 'p01'
+    current_problem = 'p02'
     load_problem('../data/' + current_problem)
     initialize()
-    # train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_rate,
-    #       intermediate_plots=True)
+    train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_rate,
+          intermediate_plots=True)
 
     save_solution(population[0][0], '../solutions/' + current_problem)
 
