@@ -397,16 +397,21 @@ def train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_r
 
     population.sort(key=lambda x: -x[1])
     print("\n\nFinished training")
+
+    best_solution = None
     if is_consistent(population[0][0]):
         print(f'Best score: {population[0][1]}, best distance: {evaluate(population[0][0], True)}')
+        best_solution = population[0][0]
     else:
         for c in population:
             if is_consistent(c[0]):
                 print(f'Best score: {c[1]}, best distance: {evaluate(c[0], True)}')
+                best_solution = c[0]
                 break
         else:
             print('Found no consistent solutions.')
-    plot(population[0][0])
+    plot(best_solution)
+    return best_solution
 
 
 def plot_map(show=True, annotate=True):
@@ -470,13 +475,14 @@ def save_solution(chromosome, path):
 
 
 if __name__ == '__main__':
-    current_problem = 'p02'
+    current_problem = 'p08'
     load_problem('../data/' + current_problem)
     initialize()
-    train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_rate,
+    best_solution = train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_rate,
           intermediate_plots=True)
 
-    save_solution(population[0][0], '../solutions/' + current_problem)
+    if best_solution:
+        save_solution(best_solution, '../solutions/' + current_problem)
 
     # for i in range(13, 24):
     #     if i < 10:
@@ -486,5 +492,6 @@ if __name__ == '__main__':
     #     print('p' + n)
     #     load_problem('../data/p' + n)
     #     initialize()
-    #     train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_rate,
+    #     best_solution = train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_rate,
     #           intermediate_plots=True, log=True)
+    #     save_solution(best_solution, '../solutions/p' + n)
