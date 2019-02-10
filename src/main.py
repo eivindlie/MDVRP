@@ -164,6 +164,19 @@ def evaluate_route(route, depot, return_load=False):
     return route_length
 
 
+def schedule_route(route):
+    new_route = []
+    prev_cust = random.choice(route)
+    route.remove(prev_cust)
+    new_route.append(prev_cust)
+
+    while len(route):
+        prev_cust = min(route, key=lambda x: distance(customers[x - 1].pos, customers[prev_cust - 1].pos))
+        route.remove(prev_cust)
+        new_route.append(prev_cust)
+    return new_route
+
+
 def create_heuristic_chromosome(groups):
     # Group customers in routes according to savings
     routes = [[] for i in range(len(depots))]
@@ -233,15 +246,7 @@ def create_heuristic_chromosome(groups):
     # Order customers within routes
     for i, depot_routes in enumerate(routes):
         for j, route in enumerate(depot_routes):
-            new_route = []
-            prev_cust = random.choice(route)
-            route.remove(prev_cust)
-            new_route.append(prev_cust)
-
-            while len(route):
-                prev_cust = min(route, key=lambda x: distance(customers[x - 1].pos, customers[prev_cust - 1].pos))
-                route.remove(prev_cust)
-                new_route.append(prev_cust)
+            new_route = schedule_route(route)
             routes[i][j] = new_route
 
     chromosome = encode(routes)
@@ -476,7 +481,7 @@ def save_solution(chromosome, path):
 
 
 if __name__ == '__main__':
-    current_problem = 'p08'
+    current_problem = 'p01'
     load_problem('../data/' + current_problem)
     initialize()
     best_solution = train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_rate,
