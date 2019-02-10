@@ -136,12 +136,14 @@ def evaluate(chromosome, return_distance=False):
     for depot_index in range(len(routes)):
         depot = depots[depot_index]
         for route in routes[depot_index]:
-            route_length = evaluate_route(route, depot)
+            route_length, route_load = evaluate_route(route, depot, True)
 
-            if route_length == -1:
-                score += 3000
-            else:
-                score += route_length
+            score += route_length
+
+            if depot.max_duration and route_length > depot.max_duration:
+                score += (route_length - depot.max_duration) * 1
+            if route_load > depot.max_load:
+                score += 2000
     if return_distance:
         return score
     return 1/score
@@ -161,11 +163,6 @@ def evaluate_route(route, depot, return_load=False):
         route_length += customer.service_duration
         last_pos = customer.pos
     route_length += find_closest_depot(customer.pos)[1]
-
-    if route_load > depot.max_load or (depot.max_duration != 0 and route_length > depot.max_duration):
-        if return_load:
-            return -1, route_load
-        return -1
 
     if return_load:
         return route_length, route_load
