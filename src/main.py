@@ -14,6 +14,7 @@ generations = 500
 crossover_rate = 0.4
 heuristic_mutate_rate = 0.5
 inversion_mutate_rate = 0.2
+depot_move_mutate_rate = 0.4
 
 
 depots = None
@@ -382,6 +383,23 @@ def inversion_mutate(p):
         population.append((child, evaluate(child)))
 
 
+def depot_move_mutate(p):
+    if -1 not in p:
+        return
+    i = int(random.random() * len(p))
+    while p[i] != -1:
+        i = (i + 1) % len(p)
+
+    move_len = int(random.random() * 10) - 5
+    new_pos = (i + move_len) % len(p)
+
+    child = p[:]
+    child.pop(i)
+    child.insert(new_pos, -1)
+    if is_consistent(child):
+        population.append((child, evaluate(child)))
+
+
 def train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_rate,
           intermediate_plots=False, log=True):
     global population
@@ -393,7 +411,7 @@ def train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_r
             population.sort(key=lambda x: -x[1])
             plot(population[0][0])
 
-        selection = select(heuristic_mutate_rate + inversion_mutate_rate + crossover_rate)
+        selection = select(heuristic_mutate_rate + inversion_mutate_rate + crossover_rate + depot_move_mutate_rate)
         selection = list(map(lambda x: x[0], selection))
 
         offset = 0
@@ -410,6 +428,10 @@ def train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_r
         for i in range(int(population_size * inversion_mutate_rate)):
             inversion_mutate(selection[i + offset])
         offset += int(population_size * inversion_mutate_rate)
+
+        for i in range(int(population_size * depot_move_mutate_rate)):
+            depot_move_mutate(selection[i + offset])
+        offset += int(population_size * depot_move_mutate_rate)
 
         population = select(1.0, elitism=4)
 
@@ -494,7 +516,7 @@ def save_solution(chromosome, path):
 
 
 if __name__ == '__main__':
-    current_problem = 'p08'
+    current_problem = 'p13'
     load_problem('../data/' + current_problem)
     initialize()
     best_solution = train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_rate,
