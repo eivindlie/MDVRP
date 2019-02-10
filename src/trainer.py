@@ -134,7 +134,7 @@ def evaluate(chromosome, return_distance=False):
             score += route_length
 
             if depot.max_duration and route_length > depot.max_duration:
-                score += (route_length - depot.max_duration) * 10
+                score += (route_length - depot.max_duration) * 30
             if route_load > depot.max_load:
                 score += 2000
     if return_distance:
@@ -415,7 +415,8 @@ def train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_r
     global population
     for g in range(generations):
         if log and g % 10 == 0:
-            print(f'[Generation {g}] Best score: {max(map(lambda x: x[1], population))}')
+            best = max(population, key=lambda x: x[1])
+            print(f'[Generation {g}] Best score: {best[1]} Consistent: {is_consistent(best[0])}')
 
         if intermediate_plots and g % 100 == 0:
             population.sort(key=lambda x: -x[1])
