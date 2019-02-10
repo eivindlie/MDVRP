@@ -1,6 +1,6 @@
 import trainer
 
-generations = 2500
+generations = 300
 population_size = 50
 crossover_rate = 0.05
 heuristic_mutate_rate = 0.05

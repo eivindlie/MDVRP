@@ -445,48 +445,64 @@ def train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_r
           depot_move_mutate_rate, best_insertion_mutate_rate, route_merge_rate,
           intermediate_plots=False, log=True):
     global population
-    for g in range(generations):
-        if log and g % 10 == 0:
-            best = max(population, key=lambda x: x[1])
-            print(f'[Generation {g}] Best score: {best[1]} Consistent: {is_consistent(best[0])}')
+    error_logs = []
+    mutate_rates = [0.01, 0.05, 0.1, 0.5]
+    for rate in mutate_rates:
+        initialize()
+        crossover_rate = best_insertion_mutate_rate = route_merge_rate = rate
+        heuristic_mutate_rate = inversion_mutate_rate = depot_move_mutate_rate = 0
+        error_log = []
+        error_logs.append(error_log)
+        for g in range(generations):
+            if log and g % 5 == 0:
+                best = max(population, key=lambda x: x[1])
+                print(f'[Generation {g}] Best score: {best[1]} Consistent: {is_consistent(best[0])}')
+                error_log.append(best[1])
 
-        if intermediate_plots and g % 100 == 0:
-            population.sort(key=lambda x: -x[1])
-            plot(population[0][0])
+            if intermediate_plots and g % 100 == 0:
+                population.sort(key=lambda x: -x[1])
+                plot(population[0][0])
 
-        selection = select(heuristic_mutate_rate + inversion_mutate_rate
-                           + crossover_rate + depot_move_mutate_rate + best_insertion_mutate_rate
-                           + route_merge_rate)
-        selection = list(map(lambda x: x[0], selection))
+            selection = select(heuristic_mutate_rate + inversion_mutate_rate
+                               + crossover_rate + depot_move_mutate_rate + best_insertion_mutate_rate
+                               + route_merge_rate)
+            selection = list(map(lambda x: x[0], selection))
 
-        offset = 0
-        for i in range(int((population_size * crossover_rate) / 2)):
-            p1, p2 = selection[2*i + offset], selection[2*i + 1 + offset]
-            crossover(p1, p2)
-            crossover(p2, p1)
-        offset += int(population_size * crossover_rate)
+            offset = 0
+            for i in range(int((population_size * crossover_rate) / 2)):
+                p1, p2 = selection[2*i + offset], selection[2*i + 1 + offset]
+                crossover(p1, p2)
+                crossover(p2, p1)
+            offset += int(population_size * crossover_rate)
 
-        for i in range(int(population_size * heuristic_mutate_rate)):
-            heuristic_mutate(selection[i + offset])
-        offset += int(population_size * heuristic_mutate_rate)
+            for i in range(int(population_size * heuristic_mutate_rate)):
+                heuristic_mutate(selection[i + offset])
+            offset += int(population_size * heuristic_mutate_rate)
 
-        for i in range(int(population_size * inversion_mutate_rate)):
-            inversion_mutate(selection[i + offset])
-        offset += int(population_size * inversion_mutate_rate)
+            for i in range(int(population_size * inversion_mutate_rate)):
+                inversion_mutate(selection[i + offset])
+            offset += int(population_size * inversion_mutate_rate)
 
-        for i in range(int(population_size * depot_move_mutate_rate)):
-            depot_move_mutate(selection[i + offset])
-        offset += int(population_size * depot_move_mutate_rate)
+            for i in range(int(population_size * depot_move_mutate_rate)):
+                depot_move_mutate(selection[i + offset])
+            offset += int(population_size * depot_move_mutate_rate)
 
-        for i in range(int(population_size * best_insertion_mutate_rate)):
-            best_insertion_mutate(selection[i + offset])
-        offset += int(population_size * best_insertion_mutate_rate)
+            for i in range(int(population_size * best_insertion_mutate_rate)):
+                best_insertion_mutate(selection[i + offset])
+            offset += int(population_size * best_insertion_mutate_rate)
 
-        for i in range(int(population_size * route_merge_rate)):
-            route_merge(selection[i + offset])
-        offset += int(population_size * route_merge_rate)
+            for i in range(int(population_size * route_merge_rate)):
+                route_merge(selection[i + offset])
+            offset += int(population_size * route_merge_rate)
 
-        population = select(1.0, elitism=4)
+            population = select(1.0, elitism=4)
+
+    for i, rate in enumerate(mutate_rates):
+        plt.plot(error_logs[i], label='Mutate rate = ' + str(rate))
+    plt.legend()
+    plt.xlabel('Generation')
+    plt.ylabel('Score')
+    plt.show()
 
     population.sort(key=lambda x: -x[1])
     print("\n\nFinished training")
