@@ -212,36 +212,42 @@ def create_heuristic_chromosome(groups):
                 if cj in route:
                     rj = r
 
+            route = None
             if ri == -1 and rj == -1:
                 if len(routes[d]) < depot.max_vehicles:
                     route = [ci, cj]
-                    if is_consistent_route(route, depot):
+            elif ri != -1 and rj == -1:
+                if routes[d][ri].index(ci) in (0, len(routes[d][ri]) - 1):
+                    route = routes[d][ri] + [cj]
+            elif ri == -1 and rj != -1:
+                if routes[d][rj].index(cj) in (0, len(routes[d][rj]) - 1):
+                    route = routes[d][rj] + [ci]
+            elif ri != rj:
+                route = routes[d][ri] + routes[d][rj]
+
+            if route:
+                route = schedule_route(route)
+                if is_consistent_route(route, depot):
+                    if ri == -1 and rj == -1:
                         routes[d].append(route)
                         missing_customers.remove(ci)
                         if ci != cj:
                             missing_customers.remove(cj)
-            elif ri != -1 and rj == -1:
-                if routes[d][ri].index(ci) in (0, len(routes[d][ri]) - 1):
-                    route = routes[d][ri] + [cj]
-                    if is_consistent_route(route, depot):
-                        routes[d][ri].append(cj)
+                    elif ri != -1 and rj == -1:
+                        routes[d][ri] = route
                         missing_customers.remove(cj)
-            elif ri == -1 and rj != -1:
-                if routes[d][rj].index(cj) in (0, len(routes[d][rj]) - 1):
-                    route = routes[d][rj] + [ci]
-                    if is_consistent_route(route, depot):
-                        routes[d][rj].append(ci)
+                    elif ri == -1 and rj != -1:
+                        routes[d][rj] = route
                         missing_customers.remove(ci)
-            elif ri != rj:
-                route = routes[d][ri] + routes[d][rj]
-                if is_consistent_route(route, depot):
-                    if ri > rj:
-                        routes[d].pop(ri)
-                        routes[d].pop(rj)
-                    else:
-                        routes[d].pop(rj)
-                        routes[d].pop(ri)
-                    routes[d].append(route)
+                    elif ri != -1 and rj != -1:
+                        if ri > rj:
+                            routes[d].pop(ri)
+                            routes[d].pop(rj)
+                        else:
+                            routes[d].pop(rj)
+                            routes[d].pop(ri)
+                        routes[d].append(route)
+
 
     # Order customers within routes
     for i, depot_routes in enumerate(routes):
