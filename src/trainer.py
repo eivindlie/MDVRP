@@ -169,6 +169,8 @@ def evaluate_route(route, depot, return_load=False):
 
 
 def schedule_route(route):
+    if not len(route):
+        return route
     new_route = []
     prev_cust = random.choice(route)
     route.remove(prev_cust)
@@ -414,21 +416,28 @@ def depot_move_mutate(p):
 
 
 def route_merge(p):
-    i1 = int(random.random() * len(p))
-    while p[i1] != 0 and p[i1] != -1:
-        i1 = (i1 + 1) % len(p)
+    routes = decode(p)
 
-    i2 = int(random.random() * len(p))
-    while p[i2] != 0 and p[i2] != -1:
-        i2 = (i2 + 1) % len(p)
-    i2 += 1
+    d1 = int(random.random() * len(routes))
+    r1 = int(random.random() * len(routes[d1]))
+    d2 = int(random.random() * len(routes))
+    r2 = int(random.random() * len(routes[d2]))
 
-    child = p[:]
-    while i2 < len(child) and child[i2] != 0 and child[i2] != -1:
-        child.insert(i1, child.pop(i2))
-        if i1 < i2:
-            i2 += 1
+    if random.random() < 0.5:
+        limit = int(random.random() * len(routes[d2][r2]))
+    else:
+        limit = len(routes[d2][r2])
 
+    reverse = random.random() < 0.5
+
+    for i in range(limit):
+        if reverse:
+            routes[d1][r1].append(routes[d2][r2].pop(0))
+        else:
+            routes[d1][r1].append(routes[d2][r2].pop())
+    routes[d1][r1] = schedule_route(routes[d1][r1])
+    routes[d2][r2] = schedule_route(routes[d2][r2])
+    child = encode(routes)
     population.append((child, evaluate(child)))
 
 

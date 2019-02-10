@@ -1,6 +1,6 @@
 import trainer
 
-generations = 500
+generations = 2500
 population_size = 50
 crossover_rate = 0.05
 heuristic_mutate_rate = 0.05
@@ -10,7 +10,7 @@ best_insertion_mutate_rate = 0.05
 route_merge_rate = 0.05
 
 if __name__ == '__main__':
-    current_problem = 'p01'
+    current_problem = 'p13'
     trainer.load_problem('../data/' + current_problem)
     trainer.set_population_size(population_size)
     trainer.initialize()
