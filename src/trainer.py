@@ -16,6 +16,10 @@ customers = None
 population = None
 
 
+def set_population_size(size):
+    population_size = size
+
+
 def load_problem(path):
     global depots, customers
     depots = []
@@ -134,9 +138,9 @@ def evaluate(chromosome, return_distance=False):
             score += route_length
 
             if depot.max_duration and route_length > depot.max_duration:
-                score += (route_length - depot.max_duration) * 30
+                score += (route_length - depot.max_duration) * 20
             if route_load > depot.max_load:
-                score += 2000
+                score += (route_load - depot.max_load) * 50
     if return_distance:
         return score
     return 1/score
@@ -409,8 +413,27 @@ def depot_move_mutate(p):
     population.append((child, evaluate(child)))
 
 
+def route_merge(p):
+    i1 = int(random.random() * len(p))
+    while p[i1] != 0 and p[i1] != -1:
+        i1 = (i1 + 1) % len(p)
+
+    i2 = int(random.random() * len(p))
+    while p[i2] != 0 and p[i2] != -1:
+        i2 = (i2 + 1) % len(p)
+    i2 += 1
+
+    child = p[:]
+    while i2 < len(child) and child[i2] != 0 and child[i2] != -1:
+        child.insert(i1, child.pop(i2))
+        if i1 < i2:
+            i2 += 1
+
+    population.append((child, evaluate(child)))
+
+
 def train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_rate,
-          depot_move_mutate_rate, best_insertion_mutate_rate,
+          depot_move_mutate_rate, best_insertion_mutate_rate, route_merge_rate,
           intermediate_plots=False, log=True):
     global population
     for g in range(generations):
@@ -423,7 +446,8 @@ def train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_r
             plot(population[0][0])
 
         selection = select(heuristic_mutate_rate + inversion_mutate_rate
-                           + crossover_rate + depot_move_mutate_rate + best_insertion_mutate_rate)
+                           + crossover_rate + depot_move_mutate_rate + best_insertion_mutate_rate
+                           + route_merge_rate)
         selection = list(map(lambda x: x[0], selection))
 
         offset = 0
@@ -448,6 +472,10 @@ def train(generations, crossover_rate, heuristic_mutate_rate, inversion_mutate_r
         for i in range(int(population_size * best_insertion_mutate_rate)):
             best_insertion_mutate(selection[i + offset])
         offset += int(population_size * best_insertion_mutate_rate)
+
+        for i in range(int(population_size * route_merge_rate)):
+            route_merge(selection[i + offset])
+        offset += int(population_size * route_merge_rate)
 
         population = select(1.0, elitism=4)
 
