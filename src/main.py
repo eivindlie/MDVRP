@@ -373,6 +373,8 @@ def inversion_mutate(p):
     cut1 = int(random.random() * len(p))
     cut2 = int(cut1 + random.random() * (len(p) - cut1))
 
+    if cut1 == cut2:
+        return
     if cut1 == 0:
         child = p[:cut1] + p[cut2 - 1::-1] + p[cut2:]
     else:
