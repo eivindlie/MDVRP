@@ -128,29 +128,35 @@ def evaluate(chromosome, return_distance=False):
     for depot_index in range(len(routes)):
         depot = depots[depot_index]
         for route in routes[depot_index]:
-            if len(route) == 0:
-                continue
-            route_load = 0
-            route_length = 0
-            customer = None
-            last_pos = depot.pos
-            for cid in route:
-                customer = customers[cid - 1]
-                route_load += customer.demand
-                route_length += distance(last_pos, customer.pos)
-                route_length += customer.service_duration
-                last_pos = customer.pos
-            route_length += find_closest_depot(customer.pos)[1]
-            score += route_length
+            route_length = evaluate_route(route, depot)
 
-            if route_load > depot.max_load or (depot.max_duration != 0 and route_length > depot.max_duration):
-                # if return_distance:
-                #     return math.inf
-                # return 0
+            if route_length == -1:
                 score += 3000
+            else:
+                score += route_length
     if return_distance:
         return score
     return 1/score
+
+
+def evaluate_route(route, depot):
+    if len(route) == 0:
+        return 0
+    route_load = 0
+    route_length = 0
+    customer = None
+    last_pos = depot.pos
+    for cid in route:
+        customer = customers[cid - 1]
+        route_load += customer.demand
+        route_length += distance(last_pos, customer.pos)
+        route_length += customer.service_duration
+        last_pos = customer.pos
+    route_length += find_closest_depot(customer.pos)[1]
+
+    if route_load > depot.max_load or (depot.max_duration != 0 and route_length > depot.max_duration):
+        return -1
+    return route_length
 
 
 def create_heuristic_chromosome(groups):
